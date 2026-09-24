@@ -1,0 +1,19 @@
+# 本地预览 / 截图临时目录
+.preview/
+
+# 打包产物
+dist/
+*.zip
+*.crx
+*.pem
+
+# 编辑器 / IDE
+.idea/
+.vscode/
+.codebuddy/
+.workbuddy/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+desktop.ini

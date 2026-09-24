@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        * { box-sizing: border-box; }
+        body { 
+            width: 450px; 
+            padding: 16px; 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            background: #f8f9fa;
+            margin: 0;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #e9ecef;
+        }
+        
+        .header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .header h3 {
+            margin: 0;
+            color: #2c3e50;
+            font-size: 18px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        
+        .header h4 {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 500;
+            max-width: 100%;
+            line-height: 1.4;
+        }
+        
+        .refresh-btn {
+            background: none;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+        
+        .refresh-btn:hover {
+            background-color: rgba(0,0,0,0.1);
+        }
+        
+        .input-group {
+            background: white;
+            padding: 16px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 16px;
+        }
+        
+        input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 12px;
+            transition: border-color 0.2s;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #007acc;
+            box-shadow: 0 0 0 3px rgba(0,122,204,0.1);
+        }
+        
+        input::placeholder {
+            color: #6c757d;
+        }
+        
+        .edit-mode {
+            width: 100%;
+        }
+        
+        .redirect-inputs-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .redirect-input-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .redirect-input-row .edit-input {
+            flex: 1;
+            margin-bottom: 0;
+        }
+        
+        .add-redirect-btn {
+            width: 100%;
+            padding: 8px;
+            background: #e9ecef;
+            color: #495057;
+            border: 2px dashed #adb5bd;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .add-redirect-btn:hover {
+            background: #dee2e6;
+            border-color: #6c757d;
+        }
+        
+        .remove-redirect-btn {
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: background-color 0.2s;
+        }
+        
+        .remove-redirect-btn:hover {
+            background: #c82333;
+        }
+        
+        .add-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #007acc, #005a9e);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .add-btn:hover {
+            background: linear-gradient(135deg, #005a9e, #004080);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,122,204,0.3);
+        }
+        
+        .add-btn:active {
+            transform: translateY(0);
+        }
+        
+        .url-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .url-item {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 12px;
+            align-items: start;
+            transition: all 0.2s;
+        }
+        
+        .url-item:hover {
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+            transform: translateY(-1px);
+        }
+        
+        .url-item.released {
+            background: #f8f9fa;
+            opacity: 0.7;
+        }
+        
+        .url-content {
+            cursor: pointer;
+            min-height: 40px;
+        }
+        
+        .url-content strong {
+            color: #2c3e50;
+            font-weight: 600;
+            display: block;
+            margin-bottom: 4px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .url-content span {
+            color: #495057;
+            font-size: 14px;
+            word-break: break-all;
+            display: block;
+            margin-bottom: 8px;
+        }
+        
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 72px;
+        }
+        
+        .btn {
+            padding: 7px 10px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            white-space: nowrap;
+        }
+        
+        .release-btn {
+            background: #28a745;
+            color: white;
+        }
+        
+        .release-btn:hover {
+            background: #218838;
+        }
+        
+        .visit-btn {
+            background: #007bff;
+            color: white;
+        }
+        
+        .visit-btn:hover {
+            background: #0056b3;
+        }
+        
+        .delete-btn {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .delete-btn:hover {
+            background: #c82333;
+        }
+        
+        .save-btn {
+            background: #28a745;
+            color: white;
+        }
+        
+        .cancel-btn {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .edit-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 2px solid #007acc;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        
+        .edit-input:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(0,122,204,0.1);
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6c757d;
+        }
+        
+        .empty-state p {
+            margin: 0;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h3>🔗 URL 阻止器</h3>
+        <h4 id="quoteText">意志不该被打败, 人生本应无限精彩</h4>
+    </div>
+    
+    <div class="input-group">
+        <input type="text" id="blockUrl" placeholder="要阻止的URL (例如: example.com)" />
+        <input type="text" id="redirectUrl" placeholder="第一个重定向到的URL，编辑规则时可添加更多 (例如: https://google.com)" />
+        <button id="addBtn" class="add-btn">➕ 添加阻止规则</button>
+    </div>
+
+
+
+    <div id="urlList" class="url-list"></div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

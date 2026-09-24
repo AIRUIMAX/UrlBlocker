@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "URL Blocker",
+  "version": "1.0.0",
+  "description": "自律拦截器：把抖音、哔哩哔哩等分心网站挡在门外，并随机重定向到你设定的目标页面",
+  "icons": {
+    "16": "assets/icon16.png",
+    "36": "assets/icon36.png",
+    "48": "assets/icon48.png",
+    "128": "assets/icon128.png"
+  },
+  "permissions": [
+    "storage",
+    "declarativeNetRequest",
+    "declarativeNetRequestWithHostAccess",
+    "tabs",
+    "webNavigation"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "URL Blocker",
+    "default_icon": {
+      "16": "assets/icon16.png",
+      "36": "assets/icon36.png",
+      "48": "assets/icon48.png",
+      "128": "assets/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ]
+}
