@@ -89,6 +89,9 @@ function normalizeRule(item) {
     return item;
 }
 
+// 记录已展开「重定向到」列表的规则索引（仅在本次面板会话内有效）
+const expandedRedirects = new Set();
+
 // 加载阻止的URL列表
 function loadBlockedUrls() {
     chrome.storage.local.get(['urlBlockingRules'], function(result) {
@@ -112,19 +115,32 @@ function loadBlockedUrls() {
             if (item.released) {
                 urlItem.classList.add('released');
             }
-            const redirectDisplay = item.redirectUrls.length <= 1
-                ? (item.redirectUrls[0] || '未设置')
-                : `${item.redirectUrls[0]} 等 ${item.redirectUrls.length} 个`;
+            const reminderChecked = item.reminderEnabled ? 'checked' : '';
+            const isOpen = expandedRedirects.has(index) ? 'open' : '';
+            const redirectItems = item.redirectUrls.length > 0
+                ? item.redirectUrls.map(url => `<span>${url}</span>`).join('')
+                : '<span>未设置</span>';
             urlItem.innerHTML = `
                 <div class="url-content" data-index="${index}">
-                    <strong>阻止</strong>
+                    <div class="url-row-head">
+                        <strong>阻止</strong>
+                        <div class="redirect-header">
+                            <strong>重定向到</strong>
+                            <button class="redirect-toggle ${isOpen}" data-index="${index}" title="展开 / 收起重定向目标">▸</button>
+                            <span class="redirect-hint">${item.redirectUrls.length} 个目标</span>
+                        </div>
+                    </div>
                     <span>${item.url}</span>
-                    <strong>重定向到</strong>
-                    <span>${redirectDisplay}</span>
+                    <div class="redirect-list ${isOpen}" data-index="${index}">${redirectItems}</div>
                 </div>
-                <div class="button-group">
-                    <button class="btn visit-btn" data-index="${index}">访问</button>
+                <div class="url-actions">
                     <button class="btn release-btn" data-index="${index}">${item.released ? '已释放' : '释放'}</button>
+                    <label class="reminder-toggle" data-index="${index}" title="释放该 URL 后，按设置间隔弹出提醒">
+                        <input type="checkbox" class="reminder-checkbox" data-index="${index}" ${reminderChecked}>
+                        <span>释放后提醒</span>
+                    </label>
+                    <span class="actions-spacer"></span>
+                    <button class="btn visit-btn" data-index="${index}">访问</button>
                     <button class="btn delete-btn" data-index="${index}">删除</button>
                 </div>
             `;
@@ -165,6 +181,41 @@ function loadBlockedUrls() {
                 deleteUrl(index);
             });
         });
+
+        // 点击「重定向到」整块（文字 / 箭头 / 目标数）→ 展开 / 收起列表
+        document.querySelectorAll('.redirect-header').forEach(header => {
+            header.addEventListener('click', function(e) {
+                e.stopPropagation(); // 避免冒泡触发卡片编辑
+                const toggle = this.querySelector('.redirect-toggle');
+                const index = parseInt(toggle.getAttribute('data-index'));
+                const list = document.querySelector(`.redirect-list[data-index="${index}"]`);
+                const open = list.classList.toggle('open');
+                toggle.classList.toggle('open', open);
+                if (open) {
+                    expandedRedirects.add(index);
+                } else {
+                    expandedRedirects.delete(index);
+                }
+            });
+        });
+
+        // 添加提醒开关事件监听（label 与 checkbox 都阻止冒泡，避免误触发编辑）
+        document.querySelectorAll('.reminder-toggle').forEach(label => {
+            label.addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
+        });
+        document.querySelectorAll('.reminder-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', function(e) {
+                e.stopPropagation();
+                const index = parseInt(this.getAttribute('data-index'));
+                toggleReminderEnabled(index, this.checked);
+            });
+        });
+
+        // 更新规则计数
+        const activeCount = blockedUrls.filter(item => !item.released).length;
+        document.getElementById('ruleCount').textContent = `共 ${blockedUrls.length} 条规则，生效中 ${activeCount} 条`;
     });
 }
 
@@ -209,9 +260,10 @@ function startEditUrl(index) {
                 ${buildRedirectInputs(index, item.redirectUrls)}
                 <button class="btn add-redirect-btn" data-index="${index}">+ 添加重定向URL</button>
             </div>
-            <div class="button-group">
-                <button class="btn save-btn" data-index="${index}">保存</button>
+            <div class="url-actions">
                 <button class="btn cancel-btn" data-index="${index}">取消</button>
+                <span class="actions-spacer"></span>
+                <button class="btn save-btn" data-index="${index}">保存</button>
             </div>
         `;
         
@@ -350,7 +402,8 @@ function addBlockedUrl() {
         blockedUrls.push({
             url: blockUrl,
             redirectUrls: [redirectUrl],
-            released: false
+            released: false,
+            reminderEnabled: false
         });
         
         chrome.storage.local.set({urlBlockingRules: blockedUrls}, function() {
@@ -367,14 +420,30 @@ function toggleReleaseUrl(index) {
     chrome.storage.local.get(['urlBlockingRules'], function(result) {
         const blockedUrls = result.urlBlockingRules || [];
         const wasReleased = blockedUrls[index].released;
-        blockedUrls[index].released = !blockedUrls[index].released;
-        
+        const item = blockedUrls[index];
+        item.released = !item.released;
+
         chrome.storage.local.set({urlBlockingRules: blockedUrls}, function() {
-            console.log(`URL释放状态切换: 索引 ${index}, 原状态: ${wasReleased}, 新状态: ${blockedUrls[index].released}`);
+            console.log(`URL释放状态切换: 索引 ${index}, 原状态: ${wasReleased}, 新状态: ${item.released}`);
             loadBlockedUrls();
             // 通知后台更新规则
             chrome.runtime.sendMessage({action: 'updateRules'});
-            
+
+            // 如果变为释放且开启了提醒，通知后台开始提醒会话
+            if (item.released && item.reminderEnabled) {
+                chrome.runtime.sendMessage({
+                    action: 'startReminderSession',
+                    rule: { url: item.url }
+                });
+            }
+            // 如果由释放变为拦截，通知后台停止提醒会话
+            if (!item.released) {
+                chrome.runtime.sendMessage({
+                    action: 'stopReminderSession',
+                    rule: { url: item.url }
+                });
+            }
+
             // 添加调试信息显示
             chrome.runtime.sendMessage({action: 'getRulesInfo'}, function(response) {
                 console.log('当前活动规则数量:', response.activeRuleCount);
@@ -384,16 +453,39 @@ function toggleReleaseUrl(index) {
     });
 }
 
+// 切换规则提醒开关
+function toggleReminderEnabled(index, enabled) {
+    chrome.storage.local.get(['urlBlockingRules'], function(result) {
+        const blockedUrls = result.urlBlockingRules || [];
+        const item = blockedUrls[index];
+        item.reminderEnabled = enabled;
+        chrome.storage.local.set({ urlBlockingRules: blockedUrls }, function() {
+            if (enabled && item.released) {
+                chrome.runtime.sendMessage({ action: 'startReminderSession', rule: { url: item.url } });
+            } else if (!enabled) {
+                chrome.runtime.sendMessage({ action: 'stopReminderSession', rule: { url: item.url } });
+            }
+        });
+    });
+}
+
 // 删除阻止URL
 function deleteUrl(index) {
     chrome.storage.local.get(['urlBlockingRules'], function(result) {
         const blockedUrls = result.urlBlockingRules || [];
-        blockedUrls.splice(index, 1);
-        
+        const removed = blockedUrls.splice(index, 1);
+
         chrome.storage.local.set({urlBlockingRules: blockedUrls}, function() {
             loadBlockedUrls();
             // 通知后台更新规则
             chrome.runtime.sendMessage({action: 'updateRules'});
+            // 停止被删除规则的提醒会话
+            if (removed.length > 0) {
+                chrome.runtime.sendMessage({
+                    action: 'stopReminderSession',
+                    rule: { url: removed[0].url }
+                });
+            }
         });
     });
 }
@@ -484,17 +576,62 @@ function showStoredData() {
     });
 }
 
+// 打开设置弹窗
+function openSettingsModal() {
+    chrome.storage.local.get(['reminderIntervalMinutes'], function(result) {
+        const interval = typeof result.reminderIntervalMinutes === 'number' ? result.reminderIntervalMinutes : 15;
+        document.getElementById('intervalInput').value = interval;
+        document.getElementById('settingsModal').classList.add('show');
+    });
+}
+
+// 关闭设置弹窗
+function closeSettingsModal() {
+    document.getElementById('settingsModal').classList.remove('show');
+}
+
+// 保存设置
+function saveSettings() {
+    const input = document.getElementById('intervalInput');
+    let interval = parseInt(input.value, 10);
+    if (Number.isNaN(interval) || interval < 1) {
+        interval = 15;
+    }
+    interval = Math.max(1, Math.min(interval, 1440));
+    input.value = interval;
+
+    chrome.storage.local.set({ reminderIntervalMinutes: interval }, function() {
+        // 通知后台重新调度提醒
+        chrome.runtime.sendMessage({ action: 'settingsUpdated' });
+        closeSettingsModal();
+    });
+}
+
 // 初始化
 document.addEventListener('DOMContentLoaded', function() {
     showRandomQuote();
     loadBlockedUrls();
-    
+
     document.getElementById('addBtn').addEventListener('click', addBlockedUrl);
-    
-    // 支持回车极狐键添加
+
+    // 支持回车键添加
     document.getElementById('redirectUrl').addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
             addBlockedUrl();
+        }
+    });
+
+    // 设置弹窗
+    document.getElementById('openSettings').addEventListener('click', function(e) {
+        e.stopPropagation();
+        openSettingsModal();
+    });
+    document.getElementById('saveSettings').addEventListener('click', saveSettings);
+    document.getElementById('cancelSettings').addEventListener('click', closeSettingsModal);
+    // 点击遮罩区域关闭
+    document.getElementById('settingsModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeSettingsModal();
         }
     });
 });
