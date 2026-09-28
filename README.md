@@ -12,7 +12,7 @@
 
 </div>
 
-![界面预览](docs/screenshots/popup.png)
+<img src="docs/screenshots/popup.png" alt="界面预览" width="440">
 
 ---
 
